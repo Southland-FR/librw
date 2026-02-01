@@ -12,6 +12,12 @@ namespace rw {
 struct EngineOpenParams
 {
 	HWND window;
+#ifdef _D3D9_H_
+	IDirect3D9 *d3d9;
+	IDirect3DDevice9 *device;
+	D3DPRESENT_PARAMETERS *present;
+	bool externalDevice;
+#endif
 };
 #else
 struct EngineOpenParams
