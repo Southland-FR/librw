@@ -928,7 +928,7 @@ resetRenderState(void)
 	uniformState.fogStart = 0.0f;
 	uniformState.fogEnd = 0.0f;
 	uniformState.fogRange = 0.0f;
-	uniformState.fogColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	uniformState.fogColor = makeRGBAf(1.0f, 1.0f, 1.0f, 1.0f);
 	rwStateCache.gsalpha = 0;
 	rwStateCache.gsalpharef = 128;
 	stateDirty = 1;
@@ -2316,7 +2316,7 @@ deviceSystemGLFW(DeviceReq req, void *arg, int32 n)
 		monitors = glfwGetMonitors(&glGlobals.numMonitors);
 		if(n >= glGlobals.numMonitors)
 			return 0;
-		strncpy(((SubSystemInfo*)arg)->name, glfwGetMonitorName(monitors[n]), sizeof(SubSystemInfo::name));
+		strncpy(((SubSystemInfo*)arg)->name, glfwGetMonitorName(monitors[n]), sizeof(((SubSystemInfo*)arg)->name));
 		return 1;
 
 
