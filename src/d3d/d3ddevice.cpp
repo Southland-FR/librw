@@ -100,6 +100,7 @@ struct RwStateCache {
 	uint32 fogenable;
 	RGBA fogcolor;
 	uint32 cullmode;
+	uint32 shadeMode;
 	uint32 stencilenable;
 	uint32 stencilpass;
 	uint32 stencilfail;
@@ -703,6 +704,13 @@ setRwRenderState(int32 state, void *pvalue)
 			setRenderState(D3DRS_CULLMODE, cullmodeMap[value]);
 		}
 		break;
+	case SHADEMODE:
+		if(rwStateCache.shadeMode != value){
+			rwStateCache.shadeMode = value;
+			setRenderState(D3DRS_SHADEMODE,
+				value == SHADEMODEGOURAUD ? D3DSHADE_GOURAUD : D3DSHADE_FLAT);
+		}
+		break;
 
 	case STENCILENABLE:
 		if(rwStateCache.stencilenable != bval){
@@ -821,6 +829,9 @@ getRwRenderState(int32 state)
 		break;
 	case CULLMODE:
 		val = rwStateCache.cullmode;
+		break;
+	case SHADEMODE:
+		val = rwStateCache.shadeMode;
 		break;
 
 	case STENCILENABLE:
@@ -1822,6 +1833,8 @@ initD3D(void)
 
 	d3ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 	rwStateCache.cullmode = CULLNONE;
+	d3ddevice->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
+	rwStateCache.shadeMode = SHADEMODEGOURAUD;
 
 	d3ddevice->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
 	d3ddevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
