@@ -6,6 +6,7 @@ namespace sk {
 
 Globals globals;
 Args args;
+uint32 requestedMultiSamplingLevels = 1;
 
 
 bool
@@ -43,6 +44,9 @@ InitRW(void)
 		globals.width = mode.width;
 		globals.height = mode.height;
 	}
+
+	Engine::setMultiSamplingLevels(requestedMultiSamplingLevels > 1 ?
+		requestedMultiSamplingLevels : 1);
 
 	if(!rw::Engine::start())
 		return false;
