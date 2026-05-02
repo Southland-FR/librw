@@ -59,6 +59,8 @@ initkeymap(void)
 	keymap[VK_RSHIFT] = KEY_RSHIFT;
 	keymap[VK_RCONTROL] = KEY_RCTRL;
 	keymap[VK_RMENU] = KEY_RALT;
+	keymap[VK_LWIN] = KEY_LSUPER;
+	keymap[VK_RWIN] = KEY_RSUPER;
 }
 bool running;
 

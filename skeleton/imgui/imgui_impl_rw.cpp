@@ -311,9 +311,11 @@ static ImGuiKey SkKeyToImGuiKey(int keycode)
         case sk::KEY_LSHIFT: return ImGuiKey_LeftShift;
         case sk::KEY_LCTRL: return ImGuiKey_LeftCtrl;
         case sk::KEY_LALT: return ImGuiKey_LeftAlt;
+        case sk::KEY_LSUPER: return ImGuiKey_LeftSuper;
         case sk::KEY_RSHIFT: return ImGuiKey_RightShift;
         case sk::KEY_RCTRL: return ImGuiKey_RightCtrl;
         case sk::KEY_RALT: return ImGuiKey_RightAlt;
+        case sk::KEY_RSUPER: return ImGuiKey_RightSuper;
 
         case sk::KEY_NULL: return ImGuiKey_None;
     }
