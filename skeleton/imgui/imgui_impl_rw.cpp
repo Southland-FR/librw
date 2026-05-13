@@ -5,11 +5,31 @@
 #include "imgui/imgui.h"
 #include "imgui_impl_rw.h"
 
+#ifdef LIBRW_GLFW
+#include <GLFW/glfw3.h>
+extern GLFWwindow *window;
+#endif
+
 using namespace rw::RWDEVICE;
 
 static rw::Texture *g_FontTexture;
 static Im2DVertex *g_vertbuf;
 static int g_vertbufSize;
+
+#ifdef LIBRW_GLFW
+static const char*
+ImGui_ImplRW_GetClipboardText(void*)
+{
+	return window ? glfwGetClipboardString(window) : "";
+}
+
+static void
+ImGui_ImplRW_SetClipboardText(void*, const char *text)
+{
+	if(window)
+		glfwSetClipboardString(window, text ? text : "");
+}
+#endif
 
 void
 ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
@@ -161,6 +181,10 @@ ImGui_ImplRW_Init(void)
 
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
+#ifdef LIBRW_GLFW
+	io.GetClipboardTextFn = ImGui_ImplRW_GetClipboardText;
+	io.SetClipboardTextFn = ImGui_ImplRW_SetClipboardText;
+#endif
 
 	return true;
 }
