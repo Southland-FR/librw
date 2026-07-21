@@ -41,6 +41,7 @@ extern Device renderdevice;
 #ifdef _D3D9_H_
 extern IDirect3DDevice9 *d3ddevice;
 void setD3dMaterial(D3DMATERIAL9 *mat9);
+void setExternalD3D9RenderTarget(IDirect3DSurface9 *color, IDirect3DSurface9 *depth, bool32 skipPresent);
 #endif
 
 #define COLOR_ARGB(a, r, g, b) ((rw::uint32)((((a)&0xff)<<24)|(((r)&0xff)<<16)|(((g)&0xff)<<8)|((b)&0xff)))
