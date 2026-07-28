@@ -270,8 +270,14 @@ Clump::streamRead(Stream *stream)
 			geometryList[i]->destroy();
 	rwFree(geometryList);
 	rwFree(frmlst.frames);
-	if(s_plglist.streamRead(stream, clump))
-		return clump;
+
+	// Some valid GTA assets omit the optional clump extension chunk entirely.
+	// The geometry and atomic data are already complete at this point, so keep
+	// the clump even when there is no extension to read. Falling through to
+	// failgeo here would also attempt to free geometryList and frmlst.frames a
+	// second time after they have already been released above.
+	s_plglist.streamRead(stream, clump);
+	return clump;
 
 failgeo:
 	for(int32 i = 0; i < numGeometries; i++)
