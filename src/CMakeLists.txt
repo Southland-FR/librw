@@ -97,6 +97,51 @@ add_library(librw
 )
 add_library(librw::librw ALIAS librw)
 
+# Keep the cross-platform sources visible to IDEs without compiling backend
+# implementations that cannot be built for the selected platform.
+if(NOT LIBRW_PLATFORM_PS2)
+    set_source_files_properties(
+        ps2/pds.cpp
+        ps2/ps2.cpp
+        ps2/ps2device.cpp
+        ps2/ps2matfx.cpp
+        ps2/ps2raster.cpp
+        ps2/ps2skin.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE
+    )
+endif()
+
+if(NOT LIBRW_PLATFORM_GL3)
+    set_source_files_properties(
+        gl/gl3.cpp
+        gl/gl3device.cpp
+        gl/gl3immed.cpp
+        gl/gl3matfx.cpp
+        gl/gl3pipe.cpp
+        gl/gl3raster.cpp
+        gl/gl3render.cpp
+        gl/gl3shader.cpp
+        gl/gl3skin.cpp
+        gl/wdgl.cpp
+        gl/glad/glad.c
+        PROPERTIES HEADER_FILE_ONLY TRUE
+    )
+endif()
+
+if(LIBRW_PLATFORM_D3D9)
+    set_source_files_properties(
+        d3d/d3d8.cpp
+        d3d/d3d8matfx.cpp
+        d3d/d3d8render.cpp
+        d3d/d3d8skin.cpp
+        d3d/xbox.cpp
+        d3d/xboxmatfx.cpp
+        d3d/xboxskin.cpp
+        d3d/xboxvfmt.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE
+    )
+endif()
+
 target_include_directories(librw
     INTERFACE
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>

@@ -163,11 +163,13 @@ im2DRenderIndexedPrimitive(PrimitiveType primType,
 #endif
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, im2DIbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, STARTINDICES*2, nil, GL_STREAM_DRAW);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, numIndices*2, indices);
+	int32 indexCapacity = numIndices > STARTINDICES ? numIndices : STARTINDICES;
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexCapacity*sizeof(uint16), nil, GL_STREAM_DRAW);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, numIndices*sizeof(uint16), indices);
 
 	glBindBuffer(GL_ARRAY_BUFFER, im2DVbo);
-	glBufferData(GL_ARRAY_BUFFER, STARTVERTICES*sizeof(Im2DVertex), nil, GL_STREAM_DRAW);
+	int32 vertexCapacity = numVertices > STARTVERTICES ? numVertices : STARTVERTICES;
+	glBufferData(GL_ARRAY_BUFFER, vertexCapacity*sizeof(Im2DVertex), nil, GL_STREAM_DRAW);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, numVertices*sizeof(Im2DVertex), vertices);
 
 	if(im2dOverrideShader)

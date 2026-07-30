@@ -107,7 +107,6 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 	int vtx_offset = 0;
 	for(int n = 0; n < draw_data->CmdListsCount; n++){
 		const ImDrawList *cmd_list = draw_data->CmdLists[n];
-		int idx_offset = 0;
 		for(int i = 0; i < cmd_list->CmdBuffer.Size; i++){
 			const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[i];
 			if(pcmd->UserCallback)
@@ -117,10 +116,8 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 					(pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
 				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
 					(pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
-				if(clip_max.x <= clip_min.x || clip_max.y <= clip_min.y){
-					idx_offset += pcmd->ElemCount;
+				if(clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
 					continue;
-				}
 #ifdef RW_GL3
 				glEnable(GL_SCISSOR_TEST);
 				glScissor((int)clip_min.x, (int)(draw_data->DisplaySize.y*clip_scale.y - clip_max.y),
@@ -143,11 +140,15 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 					rw::SetRenderState(rw::TEXTUREFILTER, tex->getFilter());
 				}else
 					rw::SetRenderStatePtr(rw::TEXTURERASTER, nil);
+				const ImDrawIdx *indices = cmd_list->IdxBuffer.Data + pcmd->IdxOffset;
+				unsigned int maxIndex = 0;
+				for(unsigned int j = 0; j < pcmd->ElemCount; j++)
+					if(indices[j] > maxIndex)
+						maxIndex = indices[j];
 				rw::im2d::RenderIndexedPrimitive(rw::PRIMTYPETRILIST,
-					g_vertbuf+vtx_offset, cmd_list->VtxBuffer.Size,
-					cmd_list->IdxBuffer.Data+idx_offset, pcmd->ElemCount);
+					g_vertbuf + vtx_offset + pcmd->VtxOffset, maxIndex + 1,
+					(void*)indices, pcmd->ElemCount);
 			}
-			idx_offset += pcmd->ElemCount;
 		}
 		vtx_offset += cmd_list->VtxBuffer.Size;
 	}
@@ -181,6 +182,7 @@ ImGui_ImplRW_Init(void)
 
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 #ifdef LIBRW_GLFW
 	io.GetClipboardTextFn = ImGui_ImplRW_GetClipboardText;
 	io.SetClipboardTextFn = ImGui_ImplRW_SetClipboardText;
