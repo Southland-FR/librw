@@ -17,6 +17,16 @@ static rw::Texture *g_FontTexture;
 static Im2DVertex *g_vertbuf;
 static int g_vertbufSize;
 
+static void
+ImGui_ImplRW_SetupRenderState(void)
+{
+	rw::SetRenderState(rw::VERTEXALPHA, 1);
+	rw::SetRenderState(rw::SRCBLEND, rw::BLENDSRCALPHA);
+	rw::SetRenderState(rw::DESTBLEND, rw::BLENDINVSRCALPHA);
+	rw::SetRenderState(rw::ZTESTENABLE, 0);
+	rw::SetRenderState(rw::CULLMODE, rw::CULLNONE);
+}
+
 #ifdef LIBRW_GLFW
 static const char*
 ImGui_ImplRW_GetClipboardText(void*)
@@ -98,29 +108,35 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 	rw::d3d::d3ddevice->GetScissorRect(&scissorRect);
 #endif
 
-	rw::SetRenderState(rw::VERTEXALPHA, 1);
-	rw::SetRenderState(rw::SRCBLEND, rw::BLENDSRCALPHA);
-	rw::SetRenderState(rw::DESTBLEND, rw::BLENDINVSRCALPHA);
-	rw::SetRenderState(rw::ZTESTENABLE, 0);
-	rw::SetRenderState(rw::CULLMODE, rw::CULLNONE);
+	ImGui_ImplRW_SetupRenderState();
+	const float fb_width = draw_data->DisplaySize.x * clip_scale.x;
+	const float fb_height = draw_data->DisplaySize.y * clip_scale.y;
 
 	int vtx_offset = 0;
 	for(int n = 0; n < draw_data->CmdListsCount; n++){
 		const ImDrawList *cmd_list = draw_data->CmdLists[n];
 		for(int i = 0; i < cmd_list->CmdBuffer.Size; i++){
 			const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[i];
-			if(pcmd->UserCallback)
-				pcmd->UserCallback(cmd_list, pcmd);
+			if(pcmd->UserCallback){
+				if(pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+					ImGui_ImplRW_SetupRenderState();
+				else
+					pcmd->UserCallback(cmd_list, pcmd);
+			}
 			else{
 				ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x,
 					(pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
 				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
 					(pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
+				if(clip_min.x < 0.0f) clip_min.x = 0.0f;
+				if(clip_min.y < 0.0f) clip_min.y = 0.0f;
+				if(clip_max.x > fb_width) clip_max.x = fb_width;
+				if(clip_max.y > fb_height) clip_max.y = fb_height;
 				if(clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
 					continue;
 #ifdef RW_OPENGL
 				glEnable(GL_SCISSOR_TEST);
-				glScissor((int)clip_min.x, (int)(draw_data->DisplaySize.y*clip_scale.y - clip_max.y),
+				glScissor((int)clip_min.x, (int)(fb_height - clip_max.y),
 					(int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y));
 #elif defined(RW_D3D9)
 				RECT r = {
