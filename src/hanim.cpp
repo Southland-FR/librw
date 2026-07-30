@@ -235,7 +235,12 @@ copyHAnim(void *dst, void *src, int32 offset, int32)
 	dsthanim->hierarchy = nil;
 	srchier = srchanim->hierarchy;
 	if(srchier && !(srchier->flags & HAnimHierarchy::SUBHIERARCHY)){
-		dsthier = HAnimHierarchy::create(srchier->numNodes, nil, nil, srchier->flags, srchier->interpolator->maxInterpKeyFrameSize);
+		int32 maxKeySize = srchier->interpolator ?
+			srchier->interpolator->maxInterpKeyFrameSize :
+			sizeof(HAnimKeyFrame);
+		dsthier = HAnimHierarchy::create(srchier->numNodes, nil, nil, srchier->flags, maxKeySize);
+		if(dsthier == nil)
+			return dst;
 		for(i = 0; i < dsthier->numNodes; i++){
 			dsthier->nodeInfo[i].frame = nil;
 			dsthier->nodeInfo[i].flags = srchier->nodeInfo[i].flags;

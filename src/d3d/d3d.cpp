@@ -210,7 +210,7 @@ void*
 createTexture(int32 width, int32 height, int32 numlevels, uint32 usage, uint32 format)
 {
 #ifdef RW_D3D9
-	IDirect3DTexture9 *tex;
+	IDirect3DTexture9 *tex = nil;
 	d3ddevice->CreateTexture(width, height, numlevels, usage,
 	                      (D3DFORMAT)format, D3DPOOL_MANAGED, &tex, nil);
 	if(tex)
