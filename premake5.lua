@@ -93,6 +93,8 @@ workspace "librw"
 
 	filter { "platforms:*amd64*" }
 		architecture "x86_64"
+	filter { "platforms:*arm64*" }
+		architecture "ARM64"
 	filter { "platforms:*x86*" }
 		architecture "x86"
 	filter { "platforms:*-arm-*" }
