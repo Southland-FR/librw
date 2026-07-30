@@ -63,7 +63,12 @@ include(CMakeDependentOption)
 
 option(LIBRW_TOOLS "Build librw tools" ${librw_MAINPROJECT})
 option(LIBRW_INSTALL "Install librw files" ${librw_MAINPROJECT})
+option(LIBRW_MINIMAL_NATIVE_BACKENDS "Compile only the selected native renderer backend" OFF)
 cmake_dependent_option(LIBRW_EXAMPLES "Build librw examples" ON "LIBRW_TOOLS;NOT LIBRW_PLATFORM_NULL" OFF)
+
+if(LIBRW_MINIMAL_NATIVE_BACKENDS AND NOT LIBRW_PLATFORM_D3D9)
+    message(FATAL_ERROR "LIBRW_MINIMAL_NATIVE_BACKENDS currently supports only D3D9")
+endif()
 
 if(LIBRW_INSTALL)
     include(GNUInstallDirs)
