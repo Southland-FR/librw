@@ -740,6 +740,9 @@ readNativeTexture(Stream *stream)
 
 	Raster *raster;
 	D3dRaster *ext;
+	bool uploadNative = true;
+	bool uploadOk = true;
+	int32 fallbackDxt = 0;
 
 	if(flags & 2){
 		RWERROR((ERR_GENERAL, "D3D9 cube maps are not supported"));
@@ -762,12 +765,34 @@ readNativeTexture(Stream *stream)
 		                             0,
 		                             ext->format);
 		if(ext->texture == nil){
+			// Some D3D9 implementations reject native compressed formats.
+			// Decode the top mip into an RGBA texture in software instead.
+			switch(ext->format){
+			case D3DFMT_DXT1: fallbackDxt = 1; break;
+			case D3DFMT_DXT3: fallbackDxt = 3; break;
+			case D3DFMT_DXT5: fallbackDxt = 5; break;
+			default: break;
+			}
+			if(fallbackDxt){
+				ext->format = D3DFMT_A8R8G8B8;
+				ext->texture = createTexture(raster->width, raster->height, 1, 0, ext->format);
+				raster->format = Raster::C8888;
+				raster->depth = 32;
+				raster->stride = raster->width * 4;
+				ext->bpp = 4;
+				ext->customFormat = 0;
+				ext->autogenMipmap = 0;
+				uploadNative = false;
+			}
+		}
+		if(ext->texture == nil){
 			tex->raster = raster;
 			tex->destroy();
 			return nil;
 		}
 		raster->flags &= ~Raster::DONTALLOCATE;
-		ext->customFormat = 1;
+		if(uploadNative)
+			ext->customFormat = 1;
 	}else{
 		raster = Raster::create(width, height, depth, format | type, PLATFORM_D3D9);
 		if(raster == nil){
@@ -787,14 +812,37 @@ readNativeTexture(Stream *stream)
 
 	uint32 size;
 	uint8 *data;
-	bool uploadOk = true;
 	for(int32 i = 0; i < numLevels; i++){
 		size = stream->readU32();
-		if(i < raster->getNumLevels()){
+		if(uploadNative && i < raster->getNumLevels()){
 			data = raster->lock(i, Raster::LOCKWRITE|Raster::LOCKNOFETCH);
 			if(data){
 				stream->read8(data, size);
 				raster->unlock(i);
+			}else{
+				stream->seek(size);
+				uploadOk = false;
+			}
+		}else if(!uploadNative && i == 0){
+			data = (uint8*)rwNew(size, MEMDUR_EVENT | ID_DRIVER);
+			if(data){
+				stream->read8(data, size);
+				uint64 blockWidth = (raster->width + 3) / 4;
+				uint64 blockHeight = (raster->height + 3) / 4;
+				uint64 minimumSize = blockWidth * blockHeight * (fallbackDxt == 1 ? 8 : 16);
+				Image *image = size >= minimumSize ?
+					Image::create(raster->width, raster->height, 32) : nil;
+				if(image){
+					image->allocate();
+					if(image->pixels){
+						image->setPixelsDXT(fallbackDxt, data);
+						uploadOk = raster->setFromImage(image, PLATFORM_D3D9) != nil;
+					}else
+						uploadOk = false;
+					image->destroy();
+				}else
+					uploadOk = false;
+				rwFree(data);
 			}else{
 				stream->seek(size);
 				uploadOk = false;
