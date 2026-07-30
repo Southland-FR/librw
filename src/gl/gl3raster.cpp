@@ -31,13 +31,18 @@ getLevelSize(Raster *raster, int32 level)
 	int h = raster->originalHeight;
 	int s = raster->originalStride;
 	int minDim = 1;
+	int blockSize = 0;
 
 #ifdef RW_OPENGL
 	switch(natras->internalFormat){
 	case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
 	case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+		blockSize = 8;
+		minDim = 4;
+		break;
 	case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
 	case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+		blockSize = 16;
 		minDim = 4;
 		break;
 	}
@@ -52,6 +57,8 @@ getLevelSize(Raster *raster, int32 level)
 			h /= 2;
 	}
 
+	if(blockSize)
+		return ((w+3)/4)*((h+3)/4)*blockSize;
 	return s*h;
 }
 
