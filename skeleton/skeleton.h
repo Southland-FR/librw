@@ -89,6 +89,7 @@ struct Globals
 	bool32 quit;
 };
 extern Globals globals;
+extern uint32 requestedMultiSamplingLevels;
 
 // Argument to mouse events
 struct MouseState
