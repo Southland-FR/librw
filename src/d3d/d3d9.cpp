@@ -741,9 +741,14 @@ readNativeTexture(Stream *stream)
 	Raster *raster;
 	D3dRaster *ext;
 
+	if(flags & 2){
+		RWERROR((ERR_GENERAL, "D3D9 cube maps are not supported"));
+		tex->destroy();
+		return nil;
+	}
+
 	if(flags & 8){
 		// is compressed
-		assert((flags & 2) == 0 && "Can't have cube maps yet");
 		raster = Raster::create(width, height, depth, format | type | Raster::DONTALLOCATE, PLATFORM_D3D9);
 		if(raster == nil){
 			tex->destroy();
@@ -763,10 +768,6 @@ readNativeTexture(Stream *stream)
 		}
 		raster->flags &= ~Raster::DONTALLOCATE;
 		ext->customFormat = 1;
-	}else if(flags & 2){
-		RWERROR((ERR_GENERAL, "D3D9 cube maps are not supported"));
-		tex->destroy();
-		return nil;
 	}else{
 		raster = Raster::create(width, height, depth, format | type, PLATFORM_D3D9);
 		if(raster == nil){
