@@ -270,6 +270,16 @@ main(int argc, char *argv[])
 				EventHandler(MOUSEMOVE, &ms);
 				break;
 			}
+			case SDL_EVENT_MOUSE_WHEEL: {
+				sk::MouseState ms;
+				ms.scrollx = event.wheel.x;
+				ms.scrolly = event.wheel.y;
+				EventHandler(MOUSEWHEEL, &ms);
+				break;
+			}
+			case SDL_EVENT_DROP_FILE:
+				EventHandler(FILEDROP, (void*)event.drop.data);
+				break;
 			case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT: mouseButtons |= BUTTON_LEFT; break;

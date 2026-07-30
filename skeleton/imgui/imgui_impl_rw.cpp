@@ -364,7 +364,7 @@ ImGuiEventHandler(sk::Event e, void *param)
 		return EVENTPROCESSED;
 	case MOUSEWHEEL:
 		ms = (MouseState*)param;
-		io.MouseWheel += ms->wheelDelta;
+		io.AddMouseWheelEvent(ms->scrollx, ms->scrolly);
 		return EVENTPROCESSED;
 	}
 	return EVENTPROCESSED;
