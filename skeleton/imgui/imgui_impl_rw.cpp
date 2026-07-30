@@ -6,6 +6,11 @@
 #include "imgui/imgui.h"
 #include "imgui_impl_rw.h"
 
+#ifdef LIBRW_GLFW
+#include <GLFW/glfw3.h>
+extern GLFWwindow *window;
+#endif
+
 using namespace rw::RWDEVICE;
 
 static rw::Texture *g_FontTexture;
@@ -40,6 +45,21 @@ DisableClip(void)
 	rw::d3d::d3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 0);
 #endif
 }
+
+#ifdef LIBRW_GLFW
+static const char*
+ImGui_ImplRW_GetClipboardText(void*)
+{
+	return window ? glfwGetClipboardString(window) : "";
+}
+
+static void
+ImGui_ImplRW_SetClipboardText(void*, const char *text)
+{
+	if(window)
+		glfwSetClipboardString(window, text ? text : "");
+}
+#endif
 
 void
 ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
@@ -148,6 +168,10 @@ ImGui_ImplRW_Init(void)
 
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
+#ifdef LIBRW_GLFW
+	io.GetClipboardTextFn = ImGui_ImplRW_GetClipboardText;
+	io.SetClipboardTextFn = ImGui_ImplRW_SetClipboardText;
+#endif
 
 	return true;
 }
@@ -296,9 +320,11 @@ static ImGuiKey SkKeyToImGuiKey(int keycode)
         case sk::KEY_LSHIFT: return ImGuiKey_LeftShift;
         case sk::KEY_LCTRL: return ImGuiKey_LeftCtrl;
         case sk::KEY_LALT: return ImGuiKey_LeftAlt;
+        case sk::KEY_LSUPER: return ImGuiKey_LeftSuper;
         case sk::KEY_RSHIFT: return ImGuiKey_RightShift;
         case sk::KEY_RCTRL: return ImGuiKey_RightCtrl;
         case sk::KEY_RALT: return ImGuiKey_RightAlt;
+        case sk::KEY_RSUPER: return ImGuiKey_RightSuper;
 
         case sk::KEY_NULL: return ImGuiKey_None;
     }

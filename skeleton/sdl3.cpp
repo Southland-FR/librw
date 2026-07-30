@@ -130,11 +130,11 @@ static int keyCodeToSkKey(SDL_Keycode keycode) {
 	case SDLK_LSHIFT: return KEY_LSHIFT;
 	case SDLK_LCTRL: return KEY_LCTRL;
 	case SDLK_LALT: return KEY_LALT;
-	case SDLK_LGUI: return KEY_NULL;
+	case SDLK_LGUI: return KEY_LSUPER;
 	case SDLK_RSHIFT: return KEY_RSHIFT;
 	case SDLK_RCTRL: return KEY_RCTRL;
 	case SDLK_RALT: return KEY_RALT;
-	case SDLK_RGUI: return KEY_NULL;
+	case SDLK_RGUI: return KEY_RSUPER;
 	case SDLK_MENU: return KEY_NULL;
 	}
 	return KEY_NULL;
