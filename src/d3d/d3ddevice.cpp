@@ -1295,18 +1295,20 @@ beginUpdate(Camera *cam)
 	d3dShaderState.fogDisable.disable = 1.0f;
 	d3dShaderState.fogDirty = true;
 
-	RECT r;
-	GetClientRect(d3d9Globals.window, &r);
-	BOOL icon = IsIconic(d3d9Globals.window);
-	if(!icon &&
-	   (r.right != d3d9Globals.present.BackBufferWidth || r.bottom != d3d9Globals.present.BackBufferHeight)){
+	if(!d3d9Globals.externalDevice){
+		RECT r;
+		GetClientRect(d3d9Globals.window, &r);
+		BOOL icon = IsIconic(d3d9Globals.window);
+		if(!icon &&
+		   (r.right != d3d9Globals.present.BackBufferWidth || r.bottom != d3d9Globals.present.BackBufferHeight)){
 
-		d3d9Globals.present.BackBufferWidth = r.right;
-		d3d9Globals.present.BackBufferHeight = r.bottom;
+			d3d9Globals.present.BackBufferWidth = r.right;
+			d3d9Globals.present.BackBufferHeight = r.bottom;
 
-		releaseVideoMemory();
-		d3d::d3ddevice->Reset(&d3d9Globals.present);
-		restoreVideoMemory();
+			releaseVideoMemory();
+			d3d::d3ddevice->Reset(&d3d9Globals.present);
+			restoreVideoMemory();
+		}
 	}
 
 	setRenderSurfaces(cam);
@@ -1343,12 +1345,14 @@ clearCamera(Camera *cam, RGBA *col, uint32 mode)
 static void
 showRaster(Raster *raster, uint32 flag)
 {
-	UINT interval = flag & Raster::FLIPWAITVSYNCH ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
-	if(d3d9Globals.present.PresentationInterval != interval){
-		d3d9Globals.present.PresentationInterval = interval;
-		releaseVideoMemory();
-		d3d::d3ddevice->Reset(&d3d9Globals.present);
-		restoreVideoMemory();
+	if(!d3d9Globals.externalDevice){
+		UINT interval = flag & Raster::FLIPWAITVSYNCH ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
+		if(d3d9Globals.present.PresentationInterval != interval){
+			d3d9Globals.present.PresentationInterval = interval;
+			releaseVideoMemory();
+			d3d::d3ddevice->Reset(&d3d9Globals.present);
+			restoreVideoMemory();
+		}
 	}
 
 	// not used but we want cameras to have rasters
@@ -1358,7 +1362,7 @@ showRaster(Raster *raster, uint32 flag)
 	if(res == D3DERR_DEVICELOST){
 		res = d3ddevice->TestCooperativeLevel();
 		// lost while being minimized, not reset once we're back
-		if(res == D3DERR_DEVICENOTRESET){
+		if(res == D3DERR_DEVICENOTRESET && !d3d9Globals.externalDevice){
 			releaseVideoMemory();
 			d3d::d3ddevice->Reset(&d3d9Globals.present);
 			restoreVideoMemory();
@@ -1510,30 +1514,94 @@ openD3D(EngineOpenParams *params)
 	HWND win = params->window;
 
 	d3d9Globals.window = win;
+	d3d9Globals.externalDevice = false;
+	d3d9Globals.d3d9FromDevice = false;
 	d3d9Globals.numAdapters = 0;
 	d3d9Globals.modes = nil;
 	d3d9Globals.numModes = 0;
 	d3d9Globals.currentMode = 0;
 
-	d3d9Globals.d3d9 = Direct3DCreate9(D3D_SDK_VERSION);
-	if(d3d9Globals.d3d9 == nil){
-		RWERROR((ERR_GENERAL, "Direct3DCreate9() failed"));
-		return 0;
+	if(params->externalDevice){
+		if(params->device == nil){
+			RWERROR((ERR_GENERAL, "External device is nil"));
+			return 0;
+		}
+		d3d9Globals.externalDevice = true;
+		d3d9Globals.d3d9 = params->d3d9;
+		d3d::d3ddevice = params->device;
+		if(d3d9Globals.d3d9 == nil &&
+		   SUCCEEDED(params->device->GetDirect3D(&d3d9Globals.d3d9)))
+			d3d9Globals.d3d9FromDevice = true;
+		if(d3d9Globals.d3d9 == nil){
+			d3d::d3ddevice = nil;
+			RWERROR((ERR_GENERAL, "External device requires IDirect3D9"));
+			return 0;
+		}
+	}else{
+		d3d9Globals.d3d9 = Direct3DCreate9(D3D_SDK_VERSION);
+		if(d3d9Globals.d3d9 == nil){
+			RWERROR((ERR_GENERAL, "Direct3DCreate9() failed"));
+			return 0;
+		}
 	}
 
 	d3d9Globals.numAdapters = d3d9Globals.d3d9->GetAdapterCount();
 	d3d9Globals.adapter = 0;
 
-	for(d3d9Globals.adapter = 0; d3d9Globals.adapter < d3d9Globals.numAdapters; d3d9Globals.adapter++)
-		if(d3d9Globals.d3d9->GetDeviceCaps(d3d9Globals.adapter, D3DDEVTYPE_HAL, &d3d9Globals.caps) == D3D_OK)
+	if(d3d9Globals.externalDevice){
+		D3DDEVICE_CREATION_PARAMETERS creation;
+		if(FAILED(d3d::d3ddevice->GetCreationParameters(&creation)))
+			goto fail;
+		d3d9Globals.adapter = creation.AdapterOrdinal;
+		if(d3d9Globals.d3d9->GetDeviceCaps(d3d9Globals.adapter, creation.DeviceType, &d3d9Globals.caps) == D3D_OK)
 			goto found;
+	}else{
+		for(d3d9Globals.adapter = 0; d3d9Globals.adapter < d3d9Globals.numAdapters; d3d9Globals.adapter++)
+			if(d3d9Globals.d3d9->GetDeviceCaps(d3d9Globals.adapter, D3DDEVTYPE_HAL, &d3d9Globals.caps) == D3D_OK)
+				goto found;
+	}
 	// no adapter
-	d3d9Globals.d3d9->Release();
+
+fail:
+	if(!d3d9Globals.externalDevice || d3d9Globals.d3d9FromDevice)
+		d3d9Globals.d3d9->Release();
 	d3d9Globals.d3d9 = nil;
+	d3d::d3ddevice = nil;
 	RWERROR((ERR_GENERAL, "Direct3DCreate9() failed"));
 	return 0;
 
 found:
+	memset(&d3d9Globals.present, 0, sizeof(d3d9Globals.present));
+	if(d3d9Globals.externalDevice && params->present)
+		d3d9Globals.present = *params->present;
+	else if(d3d9Globals.externalDevice){
+		IDirect3DSurface9 *surface = nil;
+		if(SUCCEEDED(d3d::d3ddevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &surface))){
+			D3DSURFACE_DESC desc;
+			if(SUCCEEDED(surface->GetDesc(&desc))){
+				d3d9Globals.present.BackBufferWidth = desc.Width;
+				d3d9Globals.present.BackBufferHeight = desc.Height;
+				d3d9Globals.present.BackBufferFormat = desc.Format;
+				d3d9Globals.present.MultiSampleType = desc.MultiSampleType;
+				d3d9Globals.present.MultiSampleQuality = desc.MultiSampleQuality;
+			}
+			surface->Release();
+		}
+		if(SUCCEEDED(d3d::d3ddevice->GetDepthStencilSurface(&surface))){
+			D3DSURFACE_DESC desc;
+			if(SUCCEEDED(surface->GetDesc(&desc)))
+				d3d9Globals.present.AutoDepthStencilFormat = desc.Format;
+			surface->Release();
+		}
+		d3d9Globals.present.BackBufferCount = 1;
+		d3d9Globals.present.SwapEffect = D3DSWAPEFFECT_DISCARD;
+		d3d9Globals.present.hDeviceWindow = d3d9Globals.window;
+		d3d9Globals.present.Windowed = TRUE;
+		d3d9Globals.present.EnableAutoDepthStencil =
+			d3d9Globals.present.AutoDepthStencilFormat != D3DFMT_UNKNOWN;
+		d3d9Globals.present.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+		d3d9Globals.present.FullScreen_RefreshRateInHz = D3DPRESENT_RATE_DEFAULT;
+	}
 	makeVideoModeList();
 	return 1;
 }
@@ -1541,14 +1609,18 @@ found:
 static int
 closeD3D(void)
 {
-	ULONG ref = d3d9Globals.d3d9->Release();
-	if(ref != 0)
-		printf("IDirect3D9_Release did not destroy\n");
+	if(!d3d9Globals.externalDevice || d3d9Globals.d3d9FromDevice){
+		ULONG ref = d3d9Globals.d3d9->Release();
+		if(ref != 0)
+			printf("IDirect3D9_Release did not destroy\n");
+	}
 	d3d9Globals.d3d9 = nil;
+	d3d9Globals.d3d9FromDevice = false;
 	rwFree(d3d9Globals.modes);
 	d3d9Globals.modes = nil;
 	d3d9Globals.numModes = 0;
 	d3d9Globals.currentMode = 0;
+	d3d9Globals.externalDevice = false;
 	return 1;
 }
 
@@ -1557,6 +1629,16 @@ startD3D(void)
 {
 	HRESULT hr;
 	int vp;
+	if(d3d9Globals.externalDevice){
+		d3d9Globals.startMode = d3d9Globals.modes[d3d9Globals.currentMode];
+		if(d3d9Globals.present.BackBufferWidth)
+			d3d9Globals.startMode.mode.Width = d3d9Globals.present.BackBufferWidth;
+		if(d3d9Globals.present.BackBufferHeight)
+			d3d9Globals.startMode.mode.Height = d3d9Globals.present.BackBufferHeight;
+		if(d3d9Globals.present.BackBufferFormat != D3DFMT_UNKNOWN)
+			d3d9Globals.startMode.mode.Format = d3d9Globals.present.BackBufferFormat;
+		return d3d::d3ddevice != nil;
+	}
 	if(d3d9Globals.caps.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT)
 		vp = D3DCREATE_HARDWARE_VERTEXPROCESSING;
 	else
@@ -1896,9 +1978,11 @@ termD3D(void)
 
 	releaseVideoMemory();
 
-	ULONG ref = d3d::d3ddevice->Release();
-	if(ref != 0)
-		printf("IDirect3D9Device_Release did not destroy\n");
+	if(!d3d9Globals.externalDevice){
+		ULONG ref = d3d::d3ddevice->Release();
+		if(ref != 0)
+			printf("IDirect3D9Device_Release did not destroy\n");
+	}
 	d3d::d3ddevice = nil;
 	return 1;
 }

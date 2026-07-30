@@ -28,6 +28,8 @@ struct D3d9Globals
 	HWND window;
 
 	IDirect3D9 *d3d9;
+	bool32 externalDevice;
+	bool32 d3d9FromDevice;
 	int numAdapters;
 	int adapter;
 	D3DCAPS9 caps;
