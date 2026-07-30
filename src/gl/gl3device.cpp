@@ -2320,7 +2320,7 @@ deviceSystemGLFW(DeviceReq req, void *arg, int32 n)
 		monitors = glfwGetMonitors(&glGlobals.numMonitors);
 		if(n >= glGlobals.numMonitors)
 			return 0;
-		strncpy(((SubSystemInfo*)arg)->name, glfwGetMonitorName(monitors[n]), sizeof(SubSystemInfo::name));
+		strncpy(((SubSystemInfo*)arg)->name, glfwGetMonitorName(monitors[n]), sizeof(((SubSystemInfo*)arg)->name));
 		return 1;
 
 

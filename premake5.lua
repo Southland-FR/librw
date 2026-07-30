@@ -41,6 +41,7 @@ newoption {
 workspace "librw"
 	location "build"
 	language "C++"
+	cppdialect "C++11"
 
 	configurations { "Release", "Debug" }
 	filter { "system:windows" }
@@ -319,4 +320,3 @@ project "hopalong"
 	entrypoint("WinMainCRTStartup")
 	removeplatforms { "*null" }
 	removeplatforms { "ps2" }
-
