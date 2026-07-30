@@ -17,35 +17,6 @@ static rw::Texture *g_FontTexture;
 static Im2DVertex *g_vertbuf;
 static int g_vertbufSize;
 
-// TODO: scissor from librw itself
-static void
-SetClip(const ImVec4 &clip)
-{
-	ImGuiIO &io = ImGui::GetIO();
-	float x1 = clip.x; float y1 = clip.y;
-	float x2 = clip.z; float y2 = clip.w;
-#ifdef RW_OPENGL
-	glScissor(x1, io.DisplaySize.y-y2, x2-x1, y2-y1);
-	glEnable(GL_SCISSOR_TEST);
-#endif
-#ifdef RW_D3D9
-	rw::d3d::d3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 1);
-	RECT r = { (LONG)x1, (LONG)y1, (LONG)x2, (LONG)y2 };
-	rw::d3d::d3ddevice->SetScissorRect(&r);
-#endif
-}
-
-static void
-DisableClip(void)
-{
-#ifdef RW_OPENGL
-	glDisable(GL_SCISSOR_TEST);
-#endif
-#ifdef RW_D3D9
-	rw::d3d::d3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 0);
-#endif
-}
-
 #ifdef LIBRW_GLFW
 static const char*
 ImGui_ImplRW_GetClipboardText(void*)
@@ -104,6 +75,8 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 		}
 		vtx_dst += cmd_list->VtxBuffer.Size;
 	}
+	ImVec2 clip_off = draw_data->DisplayPos;
+	ImVec2 clip_scale = draw_data->FramebufferScale;
 
 	int vertexAlpha = rw::GetRenderState(rw::VERTEXALPHA);
 	int srcBlend = rw::GetRenderState(rw::SRCBLEND);
@@ -114,6 +87,16 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 	int addrV = rw::GetRenderState(rw::TEXTUREADDRESSV);
 	int filter = rw::GetRenderState(rw::TEXTUREFILTER);
 	int cullmode = rw::GetRenderState(rw::CULLMODE);
+#ifdef RW_OPENGL
+	GLboolean scissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+	GLint scissorBox[4];
+	glGetIntegerv(GL_SCISSOR_BOX, scissorBox);
+#elif defined(RW_D3D9)
+	DWORD scissorEnabled = FALSE;
+	RECT scissorRect;
+	rw::d3d::d3ddevice->GetRenderState(D3DRS_SCISSORTESTENABLE, &scissorEnabled);
+	rw::d3d::d3ddevice->GetScissorRect(&scissorRect);
+#endif
 
 	rw::SetRenderState(rw::VERTEXALPHA, 1);
 	rw::SetRenderState(rw::SRCBLEND, rw::BLENDSRCALPHA);
@@ -124,12 +107,31 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 	int vtx_offset = 0;
 	for(int n = 0; n < draw_data->CmdListsCount; n++){
 		const ImDrawList *cmd_list = draw_data->CmdLists[n];
-		int idx_offset = 0;
 		for(int i = 0; i < cmd_list->CmdBuffer.Size; i++){
 			const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[i];
 			if(pcmd->UserCallback)
 				pcmd->UserCallback(cmd_list, pcmd);
 			else{
+				ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x,
+					(pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
+				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
+					(pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
+				if(clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+					continue;
+#ifdef RW_OPENGL
+				glEnable(GL_SCISSOR_TEST);
+				glScissor((int)clip_min.x, (int)(draw_data->DisplaySize.y*clip_scale.y - clip_max.y),
+					(int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y));
+#elif defined(RW_D3D9)
+				RECT r = {
+					(LONG)clip_min.x,
+					(LONG)clip_min.y,
+					(LONG)clip_max.x,
+					(LONG)clip_max.y
+				};
+				rw::d3d::d3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, TRUE);
+				rw::d3d::d3ddevice->SetScissorRect(&r);
+#endif
 				rw::Texture *tex = (rw::Texture*)pcmd->GetTexID();
 				if(tex && tex->raster){
 					rw::SetRenderStatePtr(rw::TEXTURERASTER, tex->raster);
@@ -138,17 +140,29 @@ ImGui_ImplRW_RenderDrawLists(ImDrawData* draw_data)
 					rw::SetRenderState(rw::TEXTUREFILTER, tex->getFilter());
 				}else
 					rw::SetRenderStatePtr(rw::TEXTURERASTER, nil);
-
-				SetClip(pcmd->ClipRect);
+				const ImDrawIdx *indices = cmd_list->IdxBuffer.Data + pcmd->IdxOffset;
+				unsigned int maxIndex = 0;
+				for(unsigned int j = 0; j < pcmd->ElemCount; j++)
+					if(indices[j] > maxIndex)
+						maxIndex = indices[j];
 				rw::im2d::RenderIndexedPrimitive(rw::PRIMTYPETRILIST,
-					g_vertbuf+vtx_offset, cmd_list->VtxBuffer.Size,
-					cmd_list->IdxBuffer.Data+idx_offset, pcmd->ElemCount);
-				DisableClip();
+					g_vertbuf + vtx_offset + pcmd->VtxOffset, maxIndex + 1,
+					(void*)indices, pcmd->ElemCount);
 			}
-			idx_offset += pcmd->ElemCount;
 		}
 		vtx_offset += cmd_list->VtxBuffer.Size;
 	}
+
+#ifdef RW_OPENGL
+	glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
+	if(scissorEnabled)
+		glEnable(GL_SCISSOR_TEST);
+	else
+		glDisable(GL_SCISSOR_TEST);
+#elif defined(RW_D3D9)
+	rw::d3d::d3ddevice->SetScissorRect(&scissorRect);
+	rw::d3d::d3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, scissorEnabled);
+#endif
 
 	rw::SetRenderState(rw::VERTEXALPHA,vertexAlpha);
 	rw::SetRenderState(rw::SRCBLEND, srcBlend);
@@ -168,6 +182,7 @@ ImGui_ImplRW_Init(void)
 
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 #ifdef LIBRW_GLFW
 	io.GetClipboardTextFn = ImGui_ImplRW_GetClipboardText;
 	io.SetClipboardTextFn = ImGui_ImplRW_SetClipboardText;

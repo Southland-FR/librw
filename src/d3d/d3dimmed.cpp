@@ -20,8 +20,8 @@ namespace d3d {
 #ifdef RW_D3D9
 
 // might want to tweak this
-#define NUMINDICES 10000
-#define NUMVERTICES 10000
+#define NUMINDICES 196608
+#define NUMVERTICES 65536
 
 static int primTypeMap[] = {
 	D3DPT_POINTLIST,	// invalid
