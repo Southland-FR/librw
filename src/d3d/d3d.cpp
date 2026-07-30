@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #define WITH_D3D
 #include "../rwbase.h"
@@ -19,6 +22,35 @@ namespace rw {
 namespace d3d {
 
 bool32 isP8supported = 1;	// set to 0 when actual d3d device is used
+
+static void
+standaloneRasterLog(const char *format, Raster *raster, D3dRaster *natras, int32 level, int32 lockMode)
+{
+	FILE *file = fopen("gta_reversed_app_prewinmain.log", "a");
+	if(file == nil)
+		return;
+#ifdef _MSC_VER
+	void *ret = _ReturnAddress();
+#else
+	void *ret = nil;
+#endif
+	fprintf(
+		file,
+		format,
+		raster,
+		raster ? raster->type : -1,
+		raster ? raster->platform : -1,
+		raster ? raster->width : -1,
+		raster ? raster->height : -1,
+		level,
+		lockMode,
+		natras,
+		natras ? natras->texture : nil,
+		ret
+	);
+	fprintf(file, "\n");
+	fclose(file);
+}
 
 // stolen from d3d8to9
 static uint32
@@ -210,7 +242,7 @@ void*
 createTexture(int32 width, int32 height, int32 numlevels, uint32 usage, uint32 format)
 {
 #ifdef RW_D3D9
-	IDirect3DTexture9 *tex;
+	IDirect3DTexture9 *tex = nil;
 	d3ddevice->CreateTexture(width, height, numlevels, usage,
 	                      (D3DFORMAT)format, D3DPOOL_MANAGED, &tex, nil);
 	if(tex)
@@ -585,6 +617,16 @@ rasterLock(Raster *raster, int32 level, int32 lockMode)
 	switch(raster->type){
 	case Raster::NORMAL:
 	case Raster::TEXTURE: {
+		if(tex == nil){
+			standaloneRasterLog(
+				"librw d3d rasterLock missing texture raster=%p type=%d platform=%d size=%dx%d level=%d lock=%d nat=%p tex=%p ret=%p",
+				raster,
+				natras,
+				level,
+				lockMode
+			);
+			return nil;
+		}
 		tex->GetSurfaceLevel(level, &surf);
 		natras->lockedSurf = surf;
 		HRESULT res = surf->LockRect(&lr, 0, flags);
@@ -598,8 +640,19 @@ rasterLock(Raster *raster, int32 level, int32 lockMode)
 			assert(0 && "can't lock framebuffer for writing");
 		if(raster->type == Raster::CAMERA)
 			rt = d3d9Globals.defaultRenderTarget;
-		else
+		else {
+			if(tex == nil){
+				standaloneRasterLog(
+					"librw d3d rasterLock missing camera texture raster=%p type=%d platform=%d size=%dx%d level=%d lock=%d nat=%p tex=%p ret=%p",
+					raster,
+					natras,
+					level,
+					lockMode
+				);
+				return nil;
+			}
 			tex->GetSurfaceLevel(level, &rt);
+		}
 		D3DSURFACE_DESC desc;
 		rt->GetDesc(&desc);
 		HRESULT res = d3ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &surf, nil);

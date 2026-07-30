@@ -13,6 +13,16 @@
 
 namespace rw {
 
+static void
+standaloneBeginUpdateLog(const char *message)
+{
+	FILE *file = fopen("gta_reversed_app_prewinmain.log", "a");
+	if(file == nil)
+		return;
+	fprintf(file, "%s\n", message);
+	fclose(file);
+}
+
 int32 Camera::numAllocated;
 
 PluginList Camera::s_plglist(sizeof(Camera));
@@ -20,9 +30,13 @@ PluginList Camera::s_plglist(sizeof(Camera));
 void
 defaultBeginUpdateCB(Camera *cam)
 {
+	standaloneBeginUpdateLog("librw Camera defaultBeginUpdateCB enter");
 	engine->currentCamera = cam;
+	standaloneBeginUpdateLog("librw Camera defaultBeginUpdateCB before Frame::syncDirty");
 	Frame::syncDirty();
+	standaloneBeginUpdateLog("librw Camera defaultBeginUpdateCB before device.beginUpdate");
 	engine->device.beginUpdate(cam);
+	standaloneBeginUpdateLog("librw Camera defaultBeginUpdateCB leave");
 }
 
 void

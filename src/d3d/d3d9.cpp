@@ -740,6 +740,8 @@ readNativeTexture(Stream *stream)
 
 	Raster *raster;
 	D3dRaster *ext;
+	bool uploadNative = true;
+	int32 fallbackDxt = 0;
 
 	if(flags & 8){
 		// is compressed
@@ -753,6 +755,23 @@ readNativeTexture(Stream *stream)
 		                             raster->format & Raster::MIPMAP ? numLevels : 1,
 		                             0,
 		                             ext->format);
+		if(ext->texture == nil){
+			// Some D3D9 implementations reject individual native compressed
+			// formats. Decode the top mip into an RGBA texture in software.
+			switch(ext->format){
+			case D3DFMT_DXT1: fallbackDxt = 1; break;
+			case D3DFMT_DXT3: fallbackDxt = 3; break;
+			case D3DFMT_DXT5: fallbackDxt = 5; break;
+			}
+			ext->format = D3DFMT_A8R8G8B8;
+			ext->texture = createTexture(raster->width, raster->height, 1, 0, ext->format);
+			raster->format = Raster::C8888;
+			raster->depth = 32;
+			raster->stride = raster->width * 4;
+			ext->bpp = 4;
+			ext->customFormat = 0;
+			uploadNative = false;
+		}
 		assert(ext->texture);
 		raster->flags &= ~Raster::DONTALLOCATE;
 		ext->customFormat = 1;
@@ -776,10 +795,21 @@ readNativeTexture(Stream *stream)
 	uint8 *data;
 	for(int32 i = 0; i < numLevels; i++){
 		size = stream->readU32();
-		if(i < raster->getNumLevels()){
+		if(uploadNative && i < raster->getNumLevels()){
 			data = raster->lock(i, Raster::LOCKWRITE|Raster::LOCKNOFETCH);
 			stream->read8(data, size);
 			raster->unlock(i);
+		}else if(!uploadNative && fallbackDxt && i == 0 && ext->texture){
+			data = (uint8*)rwNew(size, MEMDUR_EVENT | ID_DRIVER);
+			stream->read8(data, size);
+			Image *image = Image::create(raster->width, raster->height, 32);
+			if(image){
+				image->allocate();
+				image->setPixelsDXT(fallbackDxt, data);
+				raster->setFromImage(image, PLATFORM_D3D9);
+				image->destroy();
+			}
+			rwFree(data);
 		}else
 			stream->seek(size);
 	}

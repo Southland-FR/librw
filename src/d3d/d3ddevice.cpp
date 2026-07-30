@@ -21,6 +21,27 @@ namespace d3d {
 
 #ifdef RW_D3D9
 
+static void
+standaloneD3DLog(const char *message)
+{
+	FILE *file = fopen("gta_reversed_app_prewinmain.log", "a");
+	if(file == nil)
+		return;
+	fprintf(file, "%s\n", message);
+	fclose(file);
+}
+
+static void
+standaloneD3DLogf(const char *format, void *ptr, int32 value)
+{
+	FILE *file = fopen("gta_reversed_app_prewinmain.log", "a");
+	if(file == nil)
+		return;
+	fprintf(file, format, ptr, value);
+	fprintf(file, "\n");
+	fclose(file);
+}
+
 D3d9Globals d3d9Globals;
 
 // Keep track of rasters exclusively in video memory
@@ -243,8 +264,10 @@ void
 setRenderTarget(int n, void *surf)
 {
 	if(surf != deviceCache.renderTargets[n]){
+		standaloneD3DLog("librw d3d setRenderTarget before");
 		deviceCache.renderTargets[n] = (IDirect3DSurface9*)surf;
 		d3ddevice->SetRenderTarget(n, deviceCache.renderTargets[n]);
+		standaloneD3DLog("librw d3d setRenderTarget after");
 	}
 }
 
@@ -252,8 +275,10 @@ void
 setDepthSurface(void *surf)
 {
 	if(surf != deviceCache.depthSurface){
+		standaloneD3DLog("librw d3d setDepthSurface before");
 		deviceCache.depthSurface = (IDirect3DSurface9*)surf;
 		d3ddevice->SetDepthStencilSurface(deviceCache.depthSurface);
+		standaloneD3DLog("librw d3d setDepthSurface after");
 	}
 }
 
@@ -941,36 +966,57 @@ destroyPixelShader(void *shader)
 static void
 setRenderSurfaces(Camera *cam)
 {
+	standaloneD3DLog("librw d3d setRenderSurfaces enter");
 	Raster *fbuf = cam->frameBuffer;
-	assert(fbuf);
+	standaloneD3DLogf("librw d3d setRenderSurfaces fbuf=%p type=%d", fbuf, fbuf ? fbuf->type : -1);
+	if(fbuf == nil){
+		standaloneD3DLog("librw d3d setRenderSurfaces skipped: missing frame buffer");
+		return;
+	}
 	{
 		if(fbuf->parent)
 			fbuf = fbuf->parent;
 
+		standaloneD3DLogf("librw d3d setRenderSurfaces root fbuf=%p type=%d", fbuf, fbuf ? fbuf->type : -1);
+		if(fbuf->type != Raster::CAMERA && fbuf->type != Raster::CAMERATEXTURE){
+			standaloneD3DLog("librw d3d setRenderSurfaces skipped: invalid frame buffer type");
+			return;
+		}
 		D3dRaster *natras = GETD3DRASTEREXT(fbuf);
-		assert(fbuf->type == Raster::CAMERA || fbuf->type == Raster::CAMERATEXTURE);
+		standaloneD3DLog("librw d3d setRenderSurfaces before color target");
 		if(natras->texture == nil)
 			setRenderTarget(0, d3d9Globals.defaultRenderTarget);
 		else{
 			assert(fbuf->type == Raster::CAMERATEXTURE);
 			IDirect3DSurface9 *surf;
+			standaloneD3DLog("librw d3d setRenderSurfaces before GetSurfaceLevel");
 			((IDirect3DTexture9*)natras->texture)->GetSurfaceLevel(0, &surf);
+			standaloneD3DLog("librw d3d setRenderSurfaces after GetSurfaceLevel");
 			setRenderTarget(0, surf);
 			surf->Release();
 		}
+		standaloneD3DLog("librw d3d setRenderSurfaces after color target");
 	}
 
 	Raster *zbuf = cam->zBuffer;
 	if(zbuf){
+		standaloneD3DLogf("librw d3d setRenderSurfaces zbuf=%p type=%d", zbuf, zbuf->type);
 		if(zbuf->parent)
 			zbuf = zbuf->parent;
 
+		if(zbuf->type != Raster::ZBUFFER){
+			standaloneD3DLog("librw d3d setRenderSurfaces skipped depth: invalid z buffer type");
+			standaloneD3DLog("librw d3d setRenderSurfaces leave");
+			return;
+		}
 		D3dRaster *natras = GETD3DRASTEREXT(zbuf);
-		assert(zbuf->type == Raster::ZBUFFER);
+		standaloneD3DLog("librw d3d setRenderSurfaces before depth target");
 		setDepthSurface(natras->texture);
+		standaloneD3DLog("librw d3d setRenderSurfaces after depth target");
 	}else
 		setDepthSurface(nil);
 
+	standaloneD3DLog("librw d3d setRenderSurfaces leave");
 }
 
 static void
@@ -1221,11 +1267,14 @@ restoreVideoMemory(void)
 static void
 beginUpdate(Camera *cam)
 {
+	standaloneD3DLog("librw d3d beginUpdate enter");
 	float view[16], proj[16];
 
 	// View Matrix
+	standaloneD3DLog("librw d3d beginUpdate before get LTM");
 	Matrix inv;
 	Matrix::invert(&inv, cam->getFrame()->getLTM());
+	standaloneD3DLog("librw d3d beginUpdate after get LTM");
 	// Since we're looking into positive Z,
 	// flip X to ge a left handed view space.
 	view[0]  = -inv.right.x;
@@ -1296,24 +1345,34 @@ beginUpdate(Camera *cam)
 	d3dShaderState.fogDirty = true;
 
 	RECT r;
+	standaloneD3DLog("librw d3d beginUpdate before GetClientRect");
 	GetClientRect(d3d9Globals.window, &r);
+	standaloneD3DLog("librw d3d beginUpdate after GetClientRect");
 	BOOL icon = IsIconic(d3d9Globals.window);
 	if(!icon &&
 	   (r.right != d3d9Globals.present.BackBufferWidth || r.bottom != d3d9Globals.present.BackBufferHeight)){
 
+		standaloneD3DLog("librw d3d beginUpdate before Reset");
 		d3d9Globals.present.BackBufferWidth = r.right;
 		d3d9Globals.present.BackBufferHeight = r.bottom;
 
 		releaseVideoMemory();
 		d3d::d3ddevice->Reset(&d3d9Globals.present);
 		restoreVideoMemory();
+		standaloneD3DLog("librw d3d beginUpdate after Reset");
 	}
 
+	standaloneD3DLog("librw d3d beginUpdate before setRenderSurfaces");
 	setRenderSurfaces(cam);
+	standaloneD3DLog("librw d3d beginUpdate after setRenderSurfaces");
 
+	standaloneD3DLog("librw d3d beginUpdate before setViewport");
 	setViewport(cam->frameBuffer);
+	standaloneD3DLog("librw d3d beginUpdate after setViewport");
 
+	standaloneD3DLog("librw d3d beginUpdate before BeginScene");
 	d3ddevice->BeginScene();
+	standaloneD3DLog("librw d3d beginUpdate after BeginScene");
 }
 
 static void
