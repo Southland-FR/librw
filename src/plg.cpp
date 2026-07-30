@@ -76,13 +76,23 @@ bool
 PluginList::streamRead(Stream *stream, void *object)
 {
 	int32 length;
-	ChunkHeaderInfo header;
 	if(!findChunk(stream, ID_EXTENSION, (uint32*)&length, nil))
 		return false;
+	return this->streamReadChunk(stream, object, length);
+}
+
+bool
+PluginList::streamReadChunk(Stream *stream, void *object, int32 length)
+{
+	ChunkHeaderInfo header;
 	while(length > 0){
+		if(length < 12)
+			return false;
 		if(!readChunkHeaderInfo(stream, &header))
 			return false;
 		length -= 12;
+		if(header.length > (uint32)length)
+			return false;
 		FORLIST(lnk, this->plugins){
 			Plugin *p = PLG(lnk);
 			if(p->id == header.type && p->read){

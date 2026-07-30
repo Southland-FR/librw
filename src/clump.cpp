@@ -152,6 +152,9 @@ Clump::streamRead(Stream *stream)
 	Clump *clump;
 	int32 numGeometries;
 	Geometry **geometryList;
+	bool extensionOk;
+	uint32 extensionPos;
+	ChunkHeaderInfo extensionHeader;
 
 	if(!findChunk(stream, ID_STRUCT, &length, &version)){
 		RWERROR((ERR_CHUNK, "STRUCT"));
@@ -265,13 +268,27 @@ Clump::streamRead(Stream *stream)
 		clump->addCamera(cam);
 	}
 
+	// A clump Extension chunk is optional in some valid GTA assets. Read it
+	// only when it is the next chunk so a missing extension cannot consume the
+	// following top-level chunk. An extension that is present but malformed is
+	// still treated as an error.
+	extensionPos = stream->tell();
+	if(readChunkHeaderInfo(stream, &extensionHeader) && extensionHeader.type == ID_EXTENSION)
+		extensionOk = s_plglist.streamReadChunk(stream, clump, extensionHeader.length);
+	else{
+		stream->seek(extensionPos, 0);
+		extensionOk = s_plglist.streamReadChunk(stream, clump, 0);
+	}
+
 	for(int32 i = 0; i < numGeometries; i++)
 		if(geometryList[i])
 			geometryList[i]->destroy();
 	rwFree(geometryList);
 	rwFree(frmlst.frames);
-	if(s_plglist.streamRead(stream, clump))
+	if(extensionOk)
 		return clump;
+	clump->destroy();
+	return nil;
 
 failgeo:
 	for(int32 i = 0; i < numGeometries; i++)

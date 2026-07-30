@@ -30,6 +30,7 @@ struct PluginList
 	void destruct(void *);
 	void copy(void *dst, void *src);
 	bool streamRead(Stream *stream, void *);
+	bool streamReadChunk(Stream *stream, void *, int32 length);
 	void streamWrite(Stream *stream, void *);
 	int streamGetSize(void *);
 	void streamSkip(Stream *stream);
