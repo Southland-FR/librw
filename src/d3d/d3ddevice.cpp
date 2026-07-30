@@ -949,9 +949,39 @@ destroyPixelShader(void *shader)
 
 // Camera
 
+static IDirect3DSurface9 *externalRenderTarget = nil;
+static IDirect3DSurface9 *externalDepthSurface = nil;
+static bool32 externalSkipPresent = false;
+
+void
+setExternalD3D9RenderTarget(IDirect3DSurface9 *color, IDirect3DSurface9 *depth, bool32 skipPresent)
+{
+	if(color)
+		color->AddRef();
+	if(depth)
+		depth->AddRef();
+	if(externalRenderTarget)
+		externalRenderTarget->Release();
+	if(externalDepthSurface)
+		externalDepthSurface->Release();
+	externalRenderTarget = color;
+	externalDepthSurface = depth;
+	externalSkipPresent = skipPresent;
+}
+
 static void
 setRenderSurfaces(Camera *cam)
 {
+	if(d3d9Globals.externalDevice && externalRenderTarget){
+		// The host restores its surfaces without updating librw's cache.
+		// Bind the guest surfaces directly for every camera operation.
+		deviceCache.renderTargets[0] = externalRenderTarget;
+		d3ddevice->SetRenderTarget(0, externalRenderTarget);
+		deviceCache.depthSurface = externalDepthSurface;
+		d3ddevice->SetDepthStencilSurface(externalDepthSurface);
+		return;
+	}
+
 	Raster *fbuf = cam->frameBuffer;
 	assert(fbuf);
 	{
@@ -1356,6 +1386,9 @@ clearCamera(Camera *cam, RGBA *col, uint32 mode)
 static void
 showRaster(Raster *raster, uint32 flag)
 {
+	if(d3d9Globals.externalDevice && externalSkipPresent)
+		return;
+
 	if(!d3d9Globals.externalDevice){
 		UINT interval = flag & Raster::FLIPWAITVSYNCH ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 		if(d3d9Globals.present.PresentationInterval != interval){
@@ -1620,6 +1653,7 @@ found:
 static int
 closeD3D(void)
 {
+	setExternalD3D9RenderTarget(nil, nil, false);
 	if(!d3d9Globals.externalDevice || d3d9Globals.d3d9FromDevice){
 		ULONG ref = d3d9Globals.d3d9->Release();
 		if(ref != 0)
