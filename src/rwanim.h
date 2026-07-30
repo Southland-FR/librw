@@ -79,11 +79,24 @@ struct AnimInterpolator
 	Animation *currentAnim;
 	float32    currentTime;
 	void      *nextFrame;
+#ifdef NOTSA_STANDALONE_EXE
+	// Keep the RenderWare 3.6/GTA SA layout so game code can safely use
+	// RtAnimInterpolator fields on hierarchies owned by librw.
+	void      *animCallBack;
+	void      *animCallBackData;
+	float32    animCallBackTime;
+	void      *animLoopCallBack;
+	void      *animLoopCallBackData;
+#endif
 	int32      maxInterpKeyFrameSize;
 	int32      currentInterpKeyFrameSize;
 	int32      currentAnimKeyFrameSize;
 	int32      numNodes;
-	// TODO some callbacks, parent/sub
+#ifdef NOTSA_STANDALONE_EXE
+	bool32     isSubInterpolator;
+	int32      offsetInParent;
+	AnimInterpolator *parentAnimation;
+#endif
 	// cached from the InterpolatorInfo
 	AnimInterpolatorInfo::ApplyCB    applyCB;
 	AnimInterpolatorInfo::BlendCB    blendCB;

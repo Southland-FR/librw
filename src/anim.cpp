@@ -202,10 +202,22 @@ AnimInterpolator::create(int32 numNodes, int32 maxFrameSize)
 	interp->currentAnim = nil;
 	interp->currentTime = 0.0f;
 	interp->nextFrame = nil;
+#ifdef NOTSA_STANDALONE_EXE
+	interp->animCallBack = nil;
+	interp->animCallBackData = nil;
+	interp->animCallBackTime = 0.0f;
+	interp->animLoopCallBack = nil;
+	interp->animLoopCallBackData = nil;
+#endif
 	interp->maxInterpKeyFrameSize = maxFrameSize;
 	interp->currentInterpKeyFrameSize = maxFrameSize;
 	interp->currentAnimKeyFrameSize = -1;
-	interp->numNodes = numNodes;;
+	interp->numNodes = numNodes;
+#ifdef NOTSA_STANDALONE_EXE
+	interp->isSubInterpolator = 0;
+	interp->offsetInParent = 0;
+	interp->parentAnimation = nil;
+#endif
 
 	return interp;
 }
