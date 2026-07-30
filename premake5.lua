@@ -55,6 +55,9 @@ workspace "librw"
 		if _OPTIONS["gfxlib"] == "sdl2" then
 			includedirs { "/usr/include/SDL2" }
 		end
+	filter { "system:macosx" }
+		platforms { "macos-amd64-null", "macos-amd64-gl3",
+			"macos-arm64-null", "macos-arm64-gl3" }
 	filter {}
 
 	filter "configurations:Debug"
@@ -91,13 +94,15 @@ workspace "librw"
 		architecture "x86_64"
 	filter { "platforms:*x86*" }
 		architecture "x86"
-	filter { "platforms:*arm*" }
+	filter { "platforms:*-arm-*" }
 		architecture "ARM"
 
 	filter { "platforms:win*" }
 		system "windows"
 	filter { "platforms:linux*" }
 		system "linux"
+	filter { "platforms:macos*" }
+		system "macosx"
 
 	filter { "platforms:win*gl3" }
 		includedirs { path.join(_OPTIONS["sdl2dir"], "include") }
@@ -113,6 +118,9 @@ workspace "librw"
 		if _OPTIONS["gfxlib"] == "sdl2" then
 			includedirs { "/mingw/include/SDL2" } -- TODO: Detect this properly
 		end
+
+	filter { "platforms:macos*gl3" }
+		includedirs { "/opt/homebrew/include", "/usr/local/include" }
 
 	filter {}
 
@@ -160,6 +168,16 @@ function findlibs()
 		links { "opengl32" }
 		if _OPTIONS["gfxlib"] == "glfw" then
 			links { "glfw3" }
+		elseif _OPTIONS["gfxlib"] == "sdl2" then
+			links { "SDL2" }
+		elseif _OPTIONS["gfxlib"] == "sdl3" then
+			links { "SDL3" }
+		end
+	filter { "platforms:macos*gl3" }
+		linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
+		libdirs { "/opt/homebrew/lib", "/usr/local/lib" }
+		if _OPTIONS["gfxlib"] == "glfw" then
+			links { "glfw" }
 		elseif _OPTIONS["gfxlib"] == "sdl2" then
 			links { "SDL2" }
 		elseif _OPTIONS["gfxlib"] == "sdl3" then

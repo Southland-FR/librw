@@ -171,9 +171,11 @@ resize(GLFWwindow *window, int w, int h)
 static void
 mousemove(GLFWwindow *window, double x, double y)
 {
+	float xscale, yscale;
+	glfwGetWindowContentScale(window, &xscale, &yscale);
 	sk::MouseState ms;
-	ms.posx = x;
-	ms.posy = y;
+	ms.posx = x * xscale;
+	ms.posy = y * yscale;
 	EventHandler(MOUSEMOVE, &ms);
 }
 
@@ -236,10 +238,15 @@ main(int argc, char *argv[])
 	initkeymap();
 	glfwSetKeyCallback(window, keypress);
 	glfwSetCharCallback(window, charinput);
-	glfwSetWindowSizeCallback(window, resize);
+	glfwSetFramebufferSizeCallback(window, resize);
 	glfwSetCursorPosCallback(window, mousemove);
 	glfwSetMouseButtonCallback(window, mousebtn);
 	glfwSetScrollCallback(window, mousewheel);
+
+	// query actual framebuffer size (may differ from window size on Retina)
+	int fbw, fbh;
+	glfwGetFramebufferSize(window, &fbw, &fbh);
+	resize(window, fbw, fbh);
 
 	float lastTime = glfwGetTime()*1000;
 	while(!sk::globals.quit && !glfwWindowShouldClose(window)){
