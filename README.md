@@ -20,7 +20,44 @@ Rendering some things on the PS2 is working as a test only.
 
 librw can be used for rendering [GTA](https://github.com/gtamodding/re3).
 
+The Southland-FR fork also maintains separate integration branches for its
+downstream projects:
+
+| Branch | Consumer | Purpose |
+| --- | --- | --- |
+| `master` | General use | Current upstream plus portable fixes shared by all consumers |
+| `ariane` | [Ariane](https://github.com/Dryxio/ariane) | Ariane-specific asset compatibility |
+| `sa-reversed` | `gta-reversed-dryxio` standalone executable | RenderWare 3.6 ABI and D3D9/CMake integration |
+| `vc3insa` | `reVC` `vcinsa` | Legacy external-device/render-target integration |
+
+Downstream build automation should pin an exact tested commit from its branch,
+not a moving branch name. Keep project-specific changes off `master` so that one
+consumer cannot silently change another consumer's ABI or renderer behavior.
+
 # Building
 
-Get premake5. Generate a config, e.g. with ``premake5 gmake``,
-and look in the build directory.
+### CMake
+
+Choose the rendering backend explicitly, then build:
+
+```sh
+cmake -S . -B build -DLIBRW_PLATFORM=GL3 -DLIBRW_GL3_GFXLIB=GLFW \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+`LIBRW_PLATFORM` supports `D3D9`, `GL3`, `NULL` and the platform-specific
+targets listed in the top-level CMake file.
+
+### Premake
+
+Generate a configuration with Premake 5 and build the `librw` target from the
+generated `build` directory. For example, on Linux x64:
+
+```sh
+premake5 gmake2 --gfxlib=glfw
+make -C build -j2 config=release_linux-amd64-gl3 librw
+```
+
+On Apple Silicon, use `config=release_macos-arm64-gl3`. On Windows D3D9, run
+`premake5 vs2019` and build the `librw` target for `win-amd64-d3d9`.
