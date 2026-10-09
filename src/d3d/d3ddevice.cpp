@@ -22,6 +22,7 @@ namespace d3d {
 #ifdef RW_D3D9
 
 D3d9Globals d3d9Globals;
+void (*releaseDeviceResources)(void) = nil;
 
 // Keep track of rasters exclusively in video memory
 // as they need special treatment sometimes
@@ -1179,6 +1180,8 @@ recreateDynamicIBs(void)
 static void
 releaseVideoMemory(void)
 {
+	if(releaseDeviceResources)
+		releaseDeviceResources();
 	int32 i;
 	for(i = 0; i < MAXNUMSTAGES; i++)
 		d3ddevice->SetTexture(i, nil);

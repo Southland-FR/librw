@@ -34,6 +34,9 @@ extern Device renderdevice;
 #ifdef RW_D3D9
 #ifdef _D3D9_H_
 extern IDirect3DDevice9 *d3ddevice;
+// Optional application hook: release external D3DPOOL_DEFAULT resources and
+// additional swap chains before librw resets or shuts down the D3D9 device.
+extern void (*releaseDeviceResources)(void);
 void setD3dMaterial(D3DMATERIAL9 *mat9);
 #endif
 
